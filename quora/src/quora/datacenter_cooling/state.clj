@@ -15,35 +15,9 @@
 ;; you should be able to have some invariants/checks about what is solvable
 ;; -- eg a corner that one can't get out of, or a disconnected component
 ;; don't need to be evaluated.
-(comment
-  (defn next-steps
-    "Return a collection of states"
-    [{:keys [start-idx cells row-length] :as state}]
-    (let [
-          new-starts (open-neighbors start-idx)]
-      (map (partial take-step state) new-starts))))
+;; use transients to mutate vectors?
 
-(defn sum [args] (apply + args))
-(comment
-  (defn score
-    "Main routine to count the number of valid layouts possible for this state"
-    [state]
-    (if-let [nexts (seq (next-steps state))]
-      (sum (map score nexts))
-      (score-leaf state))))
-
-;; ### Inputting State
-(defn pos-to-idx
-  "Given row length and a 2D row-major position, convert to 1D index offset"
-  [row-length [row col]]
-  (+ (* row-length row)
-     col))
-
-(defn idx-to-pos
-  "Given row length and a 1D offset, convert to 2D position"
-  [row-length offset]
-  ((juxt quot rem) offset row-length))
-
+;; ### Sugar and enums
 (def empty-cell 0)
 (def taken-cell 1)
 (def start-cell 2)
@@ -51,20 +25,7 @@
 
 (def empty-cell? #(= empty-cell %))
 
-(defn filled?
-  "Returns logical true iff there are no empty cells in this map"
-  ;; Optimization: keep track of number of empties explicitly
-  ;; or, if we trim, it would trim to 1x1
-  [state]
-  (not-any? empty-cell? (:cells state)))
-
-(defn start-matches-finish?
-  "Logical true iff start is same position as finish"
-  [{:keys [start-idx finish-idx]}]
-  (= start-idx finish-idx))
-
-(def successfully-covered? (every-pred filled? start-matches-finish?))
-
+;; ### Inputting State
 (let [length-one? #(= 1 (count %))
       consistent-lengths? #(length-one? (distinct (map count %)))
       rows-have-one? (fn [rows elt]
@@ -78,8 +39,8 @@
           idx #(.indexOf cells %)
           start-idx (idx start-cell)
           finish-idx (idx finish-cell)
-          cells (assoc cells start-idx taken-cell, finish-idx taken-cell)
-          num-empty (count (filter empty-cell? cells))]
+          num-empty (count (filter empty-cell? cells))
+          cells (assoc cells start-idx taken-cell, finish-idx empty-cell)]
       {:cells cells
        :row-length row-length
        :start-idx start-idx
@@ -87,41 +48,83 @@
        ;:num-empty num-empty
        })))
 
-(def sample-state
-  "An example of the state the search operates on."
-  {:cells [1 0 0, 0 0 0, 0 0 1]
-   :row-length 3, :start-idx 0, :finish-idx 8})
+;; ### Grid movement
+(defn adjacent-offsets
+  "Return the offsets in 1D structure that would be adjacent
+   (up,down,left,right) from `offset` in 2D grid obtained by wrapping
+   by `row-length`"
+  [row-length cells-length offset]
+  (for [v (if (= row-length 1)
+            [-1 1]
+            [(- row-length) -1 1 row-length])
+        :let [v (+ offset v)]
+        :when (< -1 v cells-length)] v))
 
+(defn extend-to
+  "Mark current start-idx as taken-cell, and make offset new start-idx
+   Offset is assumed to be adjacent to current start (not checked)"
+  [{:keys [cells start-idx] :as state} offset]
+  (assoc state
+    :start-idx offset,
+    :cells (assoc cells offset taken-cell)))
+
+(defn next-states
+  "Return a collection of states"
+  [{:keys [row-length cells start-idx] :as state}]
+  (let [offsets (adjacent-offsets row-length (count cells) start-idx)
+        empty-offsets (filter #(empty-cell? (get cells %)) offsets)]
+    ;; move start
+    (map #(extend-to state %) empty-offsets)))
+
+(defn sum [args] (apply + args))
 (comment
-  (expect-> [[2 0 0]
-             [0 0 0]
-             [0 0 3]]
-            make-state {:cells [1 0 0 0 0 0 0 0 1]
-                        :row-length 3
-                        :start-idx 0
-                        :finish-idx 8}
-            render-state '([2 0 0] [0 0 0] [0 0 3])))
+  (defn score
+    "Main routine to count the number of valid layouts possible for this state"
+    [state]
+    (if-let [nexts (seq (next-steps state))]
+      (sum (map score nexts))
+      (score-leaf state))))
+
+
+;; ### Grid tests
+(def filled?
+  "Returns logical true iff there are no empty cells in this map"
+  ;; Optimization: keep track of number of empties explicitly
+  ;; or, if we trim, it would trim to 1x1
+  #(not-any? empty-cell? (:cells %)))
+
+(defn start-matches-finish?
+  "Logical true iff start is same position as finish"
+  [{:keys [start-idx finish-idx]}]
+  (= start-idx finish-idx))
+
+(def successfully-covered? (every-pred filled? start-matches-finish?))
 
 ;; ### Outputting State
 (defn render-state
   "Return a collection of vectors depicting a given `state` --
    a map of :cells, :row-length, :start-idx, :finish-idx and "
-  [state]
-  (let [{:keys [cells row-length start-idx finish-idx]} state
+  [{:keys [cells row-length start-idx finish-idx]}]
+  (let [cells (assoc cells start-idx start-cell, finish-idx finish-cell)
         ;; seems bit setting is about 4x faster
         ;; (time (dotimes [_ 10e7] 3))
         ;; (time (dotimes [_ 10e7] (bit-set 0 3)))
         ;; (time (dotimes [_ 10e7] (bit-set 0 3) (bit-set 2 3)))
         ;; (time (dotimes [_ 10e7] [0 0 0]))
         ;; (time (dotimes [_ 10e7] (assoc [0 0 0] 1 1)))
-        cells (assoc cells start-idx start-cell, finish-idx finish-cell)
         rows (map vec (partition row-length cells))]
     rows))
 
 (defn show-state [state]
   (doseq [row (render-state state)] (println row)))
 
-
-
-;; testmaker: "code spinning mode":
-;; on eval of nonexistent fn, offer a skeleton of its definition
+(def test-state
+  (make-state
+   [[2 0 0 0 0 0 0]
+    [0 0 0 0 0 0 0]
+    [0 0 0 0 0 0 0]
+    [0 0 0 0 0 0 0]
+    [0 0 0 0 0 0 0]
+    [0 0 0 0 0 0 0]
+    [0 0 0 0 0 0 0]
+    [3 0 0 0 0 1 1]]))
