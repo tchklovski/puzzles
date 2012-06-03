@@ -39,14 +39,11 @@
           idx #(.indexOf cells %)
           start-idx (idx start-cell)
           finish-idx (idx finish-cell)
-          num-empty (count (filter empty-cell? cells))
           cells (assoc cells start-idx taken-cell, finish-idx empty-cell)]
       {:cells cells
        :row-length row-length
        :start-idx start-idx
-       :finish-idx finish-idx
-       ;:num-empty num-empty
-       })))
+       :finish-idx finish-idx})))
 
 ;; ### Outputting State
 (defn render-state
@@ -68,6 +65,7 @@
 
 ;; ### Test States
 (def test-state
+;;  (time (score test-state))
   (make-state
    [[2 0 0 0 0 0 0]
     [0 0 0 0 0 0 0]
@@ -87,6 +85,29 @@
   (make-state
    [[2 0 0]
     [0 0 3]]))
+
+(def medium-test-state
+;;  (time (score medium-test-state))
+  "Elapsed time: 6554.52121 msecs"
+  (make-state
+   [[2 0 0 0 0]
+    [0 0 0 0 0]
+    [0 0 0 0 0]
+    [0 0 0 0 0]
+    [0 0 0 0 0]
+    [0 0 0 0 3]]))
+
+(def large-test-state
+  ;; (time (score large-test-state))
+  "Elapsed time: 23073.343341 msecs"
+  (make-state
+   [[2 0 0 0 0]
+    [0 0 0 0 0]
+    [0 0 0 0 0]
+    [0 0 0 0 0]
+    [0 0 0 0 0]
+    [0 0 0 0 0]
+    [3 0 0 1 1]]))
 
 ;; ### Grid tests
 (defn start-matches-finish?
@@ -135,9 +156,16 @@
 ;; Counting / Scoring
 (defn sum [args] (apply + args))
 
-(defn score
-    "Main routine to count the number of valid layouts possible for this state"
-    [state]
+(defn hopeless? [state] false)
+
+(declare score)
+(defn score*  [state]
+  (if (hopeless? state)
+    0
     (if-let [nexts (seq (next-states state))]
       (sum (map score nexts))
-      (if (successfully-covered? state) 1 0)))
+      (if (successfully-covered? state) 1 0))))
+
+(def score
+  "Main routine to count the number of valid layouts possible for this state"
+score*)
