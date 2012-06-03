@@ -48,58 +48,6 @@
        ;:num-empty num-empty
        })))
 
-;; ### Grid movement
-(defn adjacent-offsets
-  "Return the offsets in 1D structure that would be adjacent
-   (up,down,left,right) from `offset` in 2D grid obtained by wrapping
-   by `row-length`"
-  [row-length cells-length offset]
-  (for [v (if (= row-length 1)
-            [-1 1]
-            [(- row-length) -1 1 row-length])
-        :let [v (+ offset v)]
-        :when (< -1 v cells-length)] v))
-
-(defn extend-to
-  "Mark current start-idx as taken-cell, and make offset new start-idx
-   Offset is assumed to be adjacent to current start (not checked)"
-  [{:keys [cells start-idx] :as state} offset]
-  (assoc state
-    :start-idx offset,
-    :cells (assoc cells offset taken-cell)))
-
-(defn next-states
-  "Return a collection of states"
-  [{:keys [row-length cells start-idx] :as state}]
-  (let [offsets (adjacent-offsets row-length (count cells) start-idx)
-        empty-offsets (filter #(empty-cell? (get cells %)) offsets)]
-    ;; move start
-    (map #(extend-to state %) empty-offsets)))
-
-(defn sum [args] (apply + args))
-(comment
-  (defn score
-    "Main routine to count the number of valid layouts possible for this state"
-    [state]
-    (if-let [nexts (seq (next-steps state))]
-      (sum (map score nexts))
-      (score-leaf state))))
-
-
-;; ### Grid tests
-(def filled?
-  "Returns logical true iff there are no empty cells in this map"
-  ;; Optimization: keep track of number of empties explicitly
-  ;; or, if we trim, it would trim to 1x1
-  #(not-any? empty-cell? (:cells %)))
-
-(defn start-matches-finish?
-  "Logical true iff start is same position as finish"
-  [{:keys [start-idx finish-idx]}]
-  (= start-idx finish-idx))
-
-(def successfully-covered? (every-pred filled? start-matches-finish?))
-
 ;; ### Outputting State
 (defn render-state
   "Return a collection of vectors depicting a given `state` --
@@ -118,6 +66,7 @@
 (defn show-state [state]
   (doseq [row (render-state state)] (println row)))
 
+;; ### Test States
 (def test-state
   (make-state
    [[2 0 0 0 0 0 0]
@@ -128,3 +77,67 @@
     [0 0 0 0 0 0 0]
     [0 0 0 0 0 0 0]
     [3 0 0 0 0 1 1]]))
+
+(def tiny-test-state
+  (make-state
+   [[2 0]
+    [3 0]]))
+
+(def small-test-state
+  (make-state
+   [[2 0 0]
+    [0 0 3]]))
+
+;; ### Grid tests
+(defn start-matches-finish?
+  "Logical true iff start is same position as finish"
+  [{:keys [start-idx finish-idx]}]
+  (= start-idx finish-idx))
+
+(def filled?
+  "Returns logical true iff there are no empty cells in this map"
+  ;; Optimization: keep track of number of empties explicitly
+  ;; or, if we trim, it would trim to 1x1
+  #(not-any? empty-cell? (:cells %)))
+
+(def successfully-covered? (every-pred start-matches-finish? filled?))
+
+;; ### Grid movement
+(defn adjacent-offsets
+  "Return the offsets in 1D structure that would be adjacent
+   (up,down,left,right) from `offset` in 2D grid obtained by wrapping
+   by `row-length`"
+  [row-length cells-length offset]
+  (let [rem (rem offset row-length)]
+    (for [v (cond
+              (= row-length 1)         [-1 1]
+              (zero? rem)              [(- row-length)    1 row-length]
+              (= (inc rem) row-length) [(- row-length) -1   row-length]
+              :else                    [(- row-length) -1 1 row-length] )
+          :let [v (+ offset v)]
+          :when (< -1 v cells-length)] v)))
+
+(defn extend-to
+  "Mark current start-idx as taken-cell, and make offset new start-idx
+   Offset is assumed to be adjacent to current start (not checked)"
+  [{:keys [cells start-idx] :as state} offset]
+  (assoc state
+    :start-idx offset,
+    :cells (assoc cells offset taken-cell)))
+
+(defn next-states
+  "Return a collection of states"
+  [{:keys [row-length cells start-idx] :as state}]
+  (let [offsets (adjacent-offsets row-length (count cells) start-idx)
+        empty-offsets (filter #(empty-cell? (get cells %)) offsets)]
+    (map #(extend-to state %) empty-offsets)))
+
+;; Counting / Scoring
+(defn sum [args] (apply + args))
+
+(defn score
+    "Main routine to count the number of valid layouts possible for this state"
+    [state]
+    (if-let [nexts (seq (next-states state))]
+      (sum (map score nexts))
+      (if (successfully-covered? state) 1 0)))
