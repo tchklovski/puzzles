@@ -25,6 +25,8 @@
 
 (def empty-cell? #(= empty-cell %))
 
+(defrecord State [cells row-length start-idx finish-idx])
+
 ;; ### Inputting State
 (let [length-one? #(= 1 (count %))
       consistent-lengths? #(length-one? (distinct (map count %)))
@@ -40,10 +42,7 @@
           start-idx (idx start-cell)
           finish-idx (idx finish-cell)
           cells (assoc cells start-idx taken-cell, finish-idx empty-cell)]
-      {:cells cells
-       :row-length row-length
-       :start-idx start-idx
-       :finish-idx finish-idx})))
+      (State. cells row-length start-idx finish-idx))))
 
 ;; ### Outputting State
 (defn render-state
@@ -88,8 +87,9 @@
 
 (def medium-test-state
 ;;  (time (score medium-test-state))
-  "Elapsed time: 6554.52121 msecs"
-  ;; 1670522 calls
+  ;; pre defrecord: "Elapsed time: 6554.52121 msecs"
+  ;; post defrecrod, first edge filtered: "Elapsed time: 5183.211706 msecs"
+  ;; all calls: 1670522 calls; first edge filtered: 1338135
   ;; 378
   (make-state
    [[2 0 0 0 0]
@@ -210,7 +210,7 @@
 (defn score* [state]
   (def num-calls (atom 0))
   (score state)
-  @num-calls
-  )
+  @num-calls)
 
-;; (defn fib [n] (if (> n 1) (+ (fib (dec n)) (fib (dec (dec n)))) 1))
+
+;; (def fib (lazy-cat [0 1] (map + fib (rest fib))))
