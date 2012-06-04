@@ -89,6 +89,8 @@
 (def medium-test-state
 ;;  (time (score medium-test-state))
   "Elapsed time: 6554.52121 msecs"
+  ;; 1670522 calls
+  ;; 378
   (make-state
    [[2 0 0 0 0]
     [0 0 0 0 0]
@@ -148,24 +150,67 @@
 
 (defn next-states
   "Return a collection of states"
-  [{:keys [row-length cells start-idx] :as state}]
+  [{:keys [cells start-idx row-length] :as state}]
   (let [offsets (adjacent-offsets row-length (count cells) start-idx)
         empty-offsets (filter #(empty-cell? (get cells %)) offsets)]
     (map #(extend-to state %) empty-offsets)))
 
 ;; Counting / Scoring
-(defn sum [args] (apply + args))
+(defn sum [args]
+  (reduce (fn [sum v] (if v (+ sum v) sum)) 0 args))
 
-(defn hopeless? [state] false)
+;; opt: could try to discard "hopeless" states faster
+;; opt -- better datastructures (bit-packing, no map)
+;; opt -- better search -- trigger possible discard when edges touched and
+;; isolated islands exist -- track total number of configs considered.
 
-(declare score)
-(defn score*  [state]
-  (if (hopeless? state)
-    0
-    (if-let [nexts (seq (next-states state))]
-      (sum (map score nexts))
-      (if (successfully-covered? state) 1 0))))
+;; eval defrecord for speed
 
-(def score
+;; opt -- if a 2x2 corner does not have a finish in it, and the edge is empty but
+;; near it is not, that may be a reason to give up
+;; maybe becomes less important as grid gets bigger?
+
+;; maybe memoization would pay off if we do it when we only have a few cells empty?
+;; (eg 5 or 10) -- the number of items cached is not too high, but they are useful
+
+;; check if grid is bisected -- and we have emppties on both sides
+;; seems like it would happen/matter more in large grid?  -- would want to maintain
+;; which rows have empties and either update counts on each step or recalc on edge touches
+
+(defn get-edge [{:keys [cells row-length start-idx]}]
+  (cond (< start-idx row-length) (subvec cells 0 row-length),
+   ;;      (zero? (rem start-idx row-length))  ...
+   ;;     (>= start-idx (- (count cells) row-length))
+   ;;     (subvec cells (- (count cells) row-length)),
+        :else nil))
+
+(defn edge-ok?
+  "if we have 4 or groups along an edge, that means there is isolated empties"
+  [edge] (< (count (partition-by identity edge)) 4))
+
+(def in-play? (comp (some-fn nil? edge-ok?) get-edge))
+
+(declare score num-calls)
+
+(defn score-aux
+  "Actual recursive scoring, no preconditions"
+  [state]
+  (if-let [nexts (seq (next-states state))]
+    (sum (map score nexts))
+    (when (successfully-covered? state) 1)))
+
+(defn score
   "Main routine to count the number of valid layouts possible for this state"
-score*)
+  [state]
+  (swap! num-calls inc)
+  (when (in-play? state) (score-aux state)))
+
+(def num-calls (atom 0))
+
+(defn score* [state]
+  (def num-calls (atom 0))
+  (score state)
+  @num-calls
+  )
+
+;; (defn fib [n] (if (> n 1) (+ (fib (dec n)) (fib (dec (dec n)))) 1))

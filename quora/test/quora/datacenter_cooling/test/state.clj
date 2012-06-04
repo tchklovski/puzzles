@@ -28,7 +28,7 @@
 (facts "next-states"
   (let [state (make-state [[2 1] [0 3]])]
     (next-states state)) => [(make-state [[1 1]
-                                           [2 3]])])
+                                          [2 3]])])
 
 (facts "successfully-covered?"
   sample-state =not=> successfully-covered?
