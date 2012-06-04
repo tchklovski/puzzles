@@ -9,7 +9,7 @@
 
 (def sample-completed-state
   "An example of completed state."
-  {:cells [1 1 1, 1 1 1, 1 1 3]
+  {:cells [1 1 1, 1 1 1, 1 1 1]
    :row-length 3, :start-idx 8, :finish-idx 8})
 
 (fact "make-state"
