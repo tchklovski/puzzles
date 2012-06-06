@@ -171,16 +171,12 @@
   ;; or, if we trim, it would trim to 1x1
   (zero? cells))
 
-(def successfully-covered? (every-pred filled? start-matches-finish?))
-
 ;; ### Grid movement
 (defn adjacent-offsets*
   "Return the offsets in 1D structure that would be adjacent
    (up,down,left,right) from `offset` in 2D grid obtained by wrapping
    by `row-length`"
   [row-length cells-length offset]
-  (swap! num-calls inc)
-
   (let [rem (rem offset row-length)]
     (for [v (cond
               (zero? rem)              [(- row-length)    1 row-length]
@@ -249,16 +245,22 @@
   ;;(every-pred edges-ok?)
   )
 
+(def successfully-covered? (every-pred filled? start-matches-finish?))
+
 (defn score-aux
   "Actual recursive scoring, no preconditions"
   [state]
-  (if-let [nexts (seq (next-states state))]
-    (sum (map score nexts))
-    (when (successfully-covered? state) 1)))
+  (if (or (start-matches-finish? state)
+          (filled? state))
+    (when (successfully-covered? state) 1)
+    (when-let [nexts (seq (next-states state))]
+      (sum (map score nexts)))))
 
 (defn score
   "Main routine to count the number of valid layouts possible for this state"
   [state]
+  (swap! num-calls inc)
+
   (when (in-play? state) (score-aux state)))
 
 (def num-calls (atom 0))
