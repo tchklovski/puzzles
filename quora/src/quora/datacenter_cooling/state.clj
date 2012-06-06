@@ -29,6 +29,11 @@
                   total-length row-length
                   start-idx finish-idx])
 
+;; we make "taken" be 0 rather than 1 so that `zero?` means filled
+(def mark-cell-taken bit-clear)
+(def mark-cell-empty bit-set)
+(def cell-empty? bit-test)
+
 ;; ### Inputting State
 (let [length-one? #(= 1 (count %))
       consistent-lengths? #(length-one? (distinct (map count %)))
@@ -56,7 +61,7 @@
           ;; internally, we indicate empties with 1s, so that all filled is 0.
           cell-indices (keep-indexed
                         (fn [idx cell] (when (= empty-cell cell) idx)) cells)
-          cells (reduce bit-set 0 cell-indices)]
+          cells (reduce mark-cell-empty 0 cell-indices)]
       (State. cells total-length row-length start-idx finish-idx))))
 
 ;; ### Outputting State
@@ -64,7 +69,7 @@
   "Return a collection of vectors depicting a given `state` --
    a map of :cells, :row-length, :start-idx, :finish-idx and "
   [{:keys [cells row-length total-length start-idx finish-idx]}]
-  (let [cells (mapv #(if (bit-test cells %) empty-cell taken-cell)
+  (let [cells (mapv #(if (cell-empty? cells %) empty-cell taken-cell)
                     (range total-length))
         cells (assoc cells start-idx start-cell, finish-idx finish-cell)
         ;; seems bit setting is about 4x faster
@@ -99,8 +104,9 @@
 
 (def small-test-state
   (make-state
-   [[2 0 0]
-    [0 0 3]]))
+   [[2 0 0 0]
+    [0 0 0 0]
+    [0 0 3 1]]))
 
 (def medium-test-state
 ;;  (time (score medium-test-state))
@@ -194,7 +200,7 @@
   [{:keys [cells start-idx] :as state} offset]
   (assoc state
     :start-idx offset,
-    :cells (bit-clear cells offset) ; offset is no longer empty
+    :cells (mark-cell-taken cells offset)
     ))
 
 (defn next-states
@@ -206,69 +212,45 @@
 
 ;; Counting / Scoring
 (defn sum [args]
-  (reduce (fn [sum v] (if v (+ sum v) sum)) 0 args))
+  (reduce (fn [sum v] (+ sum (or v 0))) 0 args))
 
 ;; opt: could try to discard "hopeless" states faster
-;; opt -- better datastructures (bit-packing, no map)
 ;; opt -- better search -- trigger possible discard when edges touched and
 ;; isolated islands exist -- track total number of configs considered.
 
-;; eval defrecord for speed
+;; observation: if one branch dead-ends, that means the things that led to it
+;; up to and *including* the first that had more than 1 option are all bad --
+;; so the whole tree of going the other way can be tossed!
 
 ;; opt -- if a 2x2 corner does not have a finish in it, and the edge is empty but
 ;; near it is not, that may be a reason to give up
 ;; maybe becomes less important as grid gets bigger?
 
-;; maybe memoization would pay off if we do it when we only have a few cells empty?
-;; (eg 5 or 10) -- the number of items cached is not too high, but they are useful
-
-;; check if grid is bisected -- and we have emppties on both sides
-;; seems like it would happen/matter more in large grid?  -- would want to maintain
-;; which rows have empties and either update counts on each step or recalc on edge touches
-
-(defn get-edge [{:keys [cells row-length start-idx]}]
-  (cond ;; (< start-idx row-length) (map #(bit-test cells %) (range row-length))
-   ;;      (zero? (rem start-idx row-length))  ...
-   ;;     (>= start-idx (- (count cells) row-length))
-   ;;     (subvec cells (- (count cells) row-length)),
-        :else nil))
-
-(defn edge-ok?
-  "if we have 4 or more groups along an edge, that means there is isolated empties"
-  [edge] (< (count (partition-by identity edge)) 4))
-
-(def edges-ok? (comp (some-fn nil? edge-ok?) get-edge))
-
-
-
-(def in-play? (constantly true)
-  ;;(every-pred edges-ok?)
-  )
+;; Key insight: n, the number of steps taken (or remaining) lets you
+;; know what to store of a computation -- at every step, you only need to
+;; have all the variants of n steps solved.
+;; wonder how big the search space gets for the richest config
 
 (def successfully-covered? (every-pred filled? start-matches-finish?))
-
-(defn score-aux
-  "Actual recursive scoring, no preconditions"
-  [state]
-  (if (or (start-matches-finish? state)
-          (filled? state))
-    (when (successfully-covered? state) 1)
-    (when-let [nexts (seq (next-states state))]
-      (sum (map score nexts)))))
 
 (defn score
   "Main routine to count the number of valid layouts possible for this state"
   [state]
   (swap! num-calls inc)
+  (if (start-matches-finish? state)
+    (when (filled? state) 1)
+    (sum (map score (next-states state)))))
 
-  (when (in-play? state) (score-aux state)))
+;;(defn hash-key [{:keys cells start-idx}] [cells start-idx])
 
 (def num-calls (atom 0))
-
-(defn score* [state]
+(defn count-calls-in-scoring [state]
   (def num-calls (atom 0))
   (score state)
   @num-calls)
 
+(comment
+  (do (use 'quora.datacenter-cooling.state :reload)
+      (time (count-calls-in-scoring medium-test-state))))
 
 ;; (def fib (lazy-cat [0 1] (map + fib (rest fib))))

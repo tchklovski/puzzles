@@ -40,4 +40,4 @@
 
 (facts "scoring"
   (score tiny-test-state) => 1
-  (score small-test-state) => 1)
+  (score small-test-state) => 2)
