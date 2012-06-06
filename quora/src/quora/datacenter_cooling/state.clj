@@ -171,14 +171,27 @@
   [{:keys [start-idx finish-idx]}]
   (= start-idx finish-idx))
 
+(defn finish-cell?
+  "Logical true iff start is same position as finish"
+  [{:keys [finish-idx]} offset]
+  (= offset finish-idx))
+
 (defn filled? [{cells :cells}]
   "Returns logical true iff there are no empty cells in this map"
   ;; Optimization: keep track of number of empties explicitly
   ;; or, if we trim, it would trim to 1x1
   (zero? cells))
 
+;; note that we know if it's filled by how many steps we took
+(defn score-leaf
+  "Returns a score if we can determine it without looking at more cases,
+   nil otherwise"
+  [state]
+  (when (start-matches-finish? state)
+    (if (filled? state) 1 0)))
+
 ;; ### Grid movement
-(defn adjacent-offsets*
+(defn neighbors*
   "Return the offsets in 1D structure that would be adjacent
    (up,down,left,right) from `offset` in 2D grid obtained by wrapping
    by `row-length`"
@@ -192,7 +205,7 @@
           :when (< -1 v cells-length)]
       v)))
 
-(def adjacent-offsets (memoize adjacent-offsets*))
+(def neighbors (memoize neighbors*))
 
 (defn extend-to
   "Mark current start-idx as taken-cell, and make offset new start-idx
@@ -200,16 +213,27 @@
   [{:keys [cells start-idx] :as state} offset]
   (assoc state
     :start-idx offset,
-    :cells (mark-cell-taken cells offset)
-    ))
+    :cells (mark-cell-taken cells offset)))
+
+(defn empty-neighbors [{:keys [cells row-length total-length]} offset]
+  (->> offset
+       (neighbors row-length total-length)
+       (filter #(cell-empty? cells %))))
 
 (defn next-states
   "Return a collection of states"
-  [{:keys [cells row-length total-length start-idx] :as state}]
-  (let [offsets (adjacent-offsets row-length total-length start-idx)
-        ;; nb could test all at once somehow?
-        empty-offsets (filter #(bit-test cells %) offsets)]
-    (map #(extend-to state %) empty-offsets)))
+  [{:keys [start-idx finish-idx] :as state}]
+  (let [next-offsets (empty-neighbors state start-idx)
+        neighbor-counts (map #(and (not= finish-idx %)
+                                   (count (empty-neighbors state %))) next-offsets)]
+    (if (some (every-pred number? zero?) neighbor-counts)
+      nil
+      (map #(extend-to state %) next-offsets))
+    ;; for each adjacent offset, check the number of empty neighbors it has.
+    ;; if it's not the finish, and
+    ))
+
+;; if some empty next is not finish, and has only
 
 ;; Counting / Scoring
 (defn sum [args]
@@ -225,31 +249,40 @@
 ;; have all the variants of n steps solved.
 ;; wonder how big the search space gets for the richest config
 
-;; note that we know if it's filled by how many steps we took
-(defn score-leaf
-  "Returns a score if we can determine it without looking at more cases,
-   nil otherwise"
-  [state]
-  (when (start-matches-finish? state)
-    (if (filled? state) 1 0)))
-
 (defn score
   "Main routine to count the number of valid layouts possible for this state"
   [state]
   (swap! num-calls inc)
   (or (score-leaf state)
       (when-let [nexts (seq (next-states state))]
-        ;; (sum (map score nexts))
+        ;;(sum (map score nexts))
         ;; observation: if one branch dead-ends, that means the things that led to it
         ;; up to and *including* the first that had more than 1 option are all bad --
         ;; so the whole tree of going the other way can be tossed!
         ;; can we do nexts3 etc?
+        ;; so "single next" can be chased before we do the nexts2 analysis?
+        ;; can we leverage lazy seqs?
+        ;; is recurring somehow better?
         (let [nexts2 (map next-states nexts)]
           (if (some empty? nexts2)
             (sum (map score-leaf nexts))
-            (sum (map (fn [n nn] (or (score-leaf n) (sum (map score nn))))
-                      nexts nexts2)))))))
+            (sum (map (fn [n nn] (or (score-leaf n)
+                                     (sum (map score nn))))
+                      nexts nexts2))))
+)))
+;; there must be at most one of the following, and it must neighbor the start state:
+;; an empty that's not a finish with less than two empty cells nearby
 
+
+(comment
+  (let [nexts2 (map next-states nexts)]
+    (if (some empty? nexts2)
+      (sum (map score-leaf nexts))
+      (sum (map (fn [n nn] (or (score-leaf n)
+                               (sum (map score nn))))
+                nexts nexts2)))))
+;; can have check-board -- for sanity check upfront to see if solvable...
+;; num empty neighbors datastructure -- for empty cells
 
 ;;(defn hash-key [{:keys cells start-idx}] [cells start-idx])
 

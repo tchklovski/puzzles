@@ -18,12 +18,12 @@
                      [0 0 3]]]
     (make-state sample-rows) => sample-state))
 
-(facts "adjacent-offsets"
-  (adjacent-offsets 3 9 0) => [1 3]
-  (adjacent-offsets 3 9 2) => [1 5]
-  (adjacent-offsets 3 9 3) => [0 4 6]
-  (adjacent-offsets 3 9 4) => [1 3 5 7]
-  (adjacent-offsets 3 9 8) => [5 7])
+(facts "neighbors"
+  (neighbors 3 9 0) => [1 3]
+  (neighbors 3 9 2) => [1 5]
+  (neighbors 3 9 3) => [0 4 6]
+  (neighbors 3 9 4) => [1 3 5 7]
+  (neighbors 3 9 8) => [5 7])
 
 (facts "next-states"
   (let [state (make-state [[2 1] [0 3]])]
