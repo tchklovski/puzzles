@@ -207,6 +207,7 @@
   "Return a collection of states"
   [{:keys [cells row-length total-length start-idx] :as state}]
   (let [offsets (adjacent-offsets row-length total-length start-idx)
+        ;; nb could test all at once somehow?
         empty-offsets (filter #(bit-test cells %) offsets)]
     (map #(extend-to state %) empty-offsets)))
 
@@ -218,28 +219,37 @@
 ;; opt -- better search -- trigger possible discard when edges touched and
 ;; isolated islands exist -- track total number of configs considered.
 
-;; observation: if one branch dead-ends, that means the things that led to it
-;; up to and *including* the first that had more than 1 option are all bad --
-;; so the whole tree of going the other way can be tossed!
-
-;; opt -- if a 2x2 corner does not have a finish in it, and the edge is empty but
-;; near it is not, that may be a reason to give up
-;; maybe becomes less important as grid gets bigger?
 
 ;; Key insight: n, the number of steps taken (or remaining) lets you
 ;; know what to store of a computation -- at every step, you only need to
 ;; have all the variants of n steps solved.
 ;; wonder how big the search space gets for the richest config
 
-(def successfully-covered? (every-pred filled? start-matches-finish?))
+;; note that we know if it's filled by how many steps we took
+(defn score-leaf
+  "Returns a score if we can determine it without looking at more cases,
+   nil otherwise"
+  [state]
+  (when (start-matches-finish? state)
+    (if (filled? state) 1 0)))
 
 (defn score
   "Main routine to count the number of valid layouts possible for this state"
   [state]
   (swap! num-calls inc)
-  (if (start-matches-finish? state)
-    (when (filled? state) 1)
-    (sum (map score (next-states state)))))
+  (or (score-leaf state)
+      (when-let [nexts (seq (next-states state))]
+        ;; (sum (map score nexts))
+        ;; observation: if one branch dead-ends, that means the things that led to it
+        ;; up to and *including* the first that had more than 1 option are all bad --
+        ;; so the whole tree of going the other way can be tossed!
+        ;; can we do nexts3 etc?
+        (let [nexts2 (map next-states nexts)]
+          (if (some empty? nexts2)
+            (sum (map score-leaf nexts))
+            (sum (map (fn [n nn] (or (score-leaf n) (sum (map score nn))))
+                      nexts nexts2)))))))
+
 
 ;;(defn hash-key [{:keys cells start-idx}] [cells start-idx])
 

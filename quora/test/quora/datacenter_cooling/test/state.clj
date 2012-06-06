@@ -30,9 +30,13 @@
     (next-states state)) => [(make-state [[1 1]
                                           [2 3]])])
 
-(facts "successfully-covered?"
-  sample-state =not=> successfully-covered?
-  sample-completed-state => successfully-covered?)
+(facts "filled?"
+  sample-state =not=> filled?
+  sample-completed-state => filled?)
+
+(facts "start-matches-finish?"
+  sample-state =not=> start-matches-finish?
+  sample-completed-state => start-matches-finish?)
 
 (facts "render-state"
   (render-state sample-state) => '([2 0 0] [0 0 0] [0 0 3])
