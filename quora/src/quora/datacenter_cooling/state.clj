@@ -225,10 +225,17 @@
   [{:keys [start-idx finish-idx] :as state}]
   (let [next-offsets (empty-neighbors state start-idx)
         neighbor-counts (map #(and (not= finish-idx %)
-                                   (count (empty-neighbors state %))) next-offsets)]
-    (if (some (every-pred number? zero?) neighbor-counts)
-      nil
-      (map #(extend-to state %) next-offsets))
+                                   (count (empty-neighbors state %))) next-offsets)
+        next-offsets (when (every? #(not= 0 %) neighbor-counts)
+                       next-offsets)
+        num-ones (count (filter #(= 1 %) neighbor-counts))
+        next-offsets   (case num-ones
+                         1 [(nth next-offsets (.indexOf (vec neighbor-counts) 1))]
+                         (2 3 4) nil
+                         next-offsets)
+
+        ]
+    (map #(extend-to state %) next-offsets)
     ;; for each adjacent offset, check the number of empty neighbors it has.
     ;; if it's not the finish, and
     ))
@@ -255,7 +262,6 @@
   (swap! num-calls inc)
   (or (score-leaf state)
       (when-let [nexts (seq (next-states state))]
-        ;;(sum (map score nexts))
         ;; observation: if one branch dead-ends, that means the things that led to it
         ;; up to and *including* the first that had more than 1 option are all bad --
         ;; so the whole tree of going the other way can be tossed!
@@ -263,12 +269,7 @@
         ;; so "single next" can be chased before we do the nexts2 analysis?
         ;; can we leverage lazy seqs?
         ;; is recurring somehow better?
-        (let [nexts2 (map next-states nexts)]
-          (if (some empty? nexts2)
-            (sum (map score-leaf nexts))
-            (sum (map (fn [n nn] (or (score-leaf n)
-                                     (sum (map score nn))))
-                      nexts nexts2))))
+        (sum (map score nexts))
 )))
 ;; there must be at most one of the following, and it must neighbor the start state:
 ;; an empty that's not a finish with less than two empty cells nearby
