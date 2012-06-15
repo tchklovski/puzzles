@@ -86,6 +86,8 @@
 
 ;; ### Test States
 (def test-state
+;; with neighbor-empty-count optimization: "Elapsed time: 540491.481086 msecs"
+;; 41942385 (42M) scorings
 ;;  (time (score test-state))
   (make-state
    [[2 0 0 0 0 0 0]
@@ -139,6 +141,15 @@
     [0 0 0 0 0]
     [3 0 0 1 1]]))
 
+(def huge-test-state
+  (make-state
+   [[2 0 0 0 0 0 0]
+    [0 0 0 0 0 0 0]
+    [0 0 0 0 0 0 0]
+    [0 0 0 0 0 0 0]
+    [0 0 0 0 0 0 0]
+    [0 0 0 0 0 0 0]
+    [3 0 0 0 0 1 1]]))
 ;; ### Grid tests
 
 ;; TODO: can use bitmaps to do fast tests for the pieces we care about
