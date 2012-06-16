@@ -27,14 +27,6 @@
     (next-states state)) => [(make-state [[1 1]
                                           [2 3]])])
 
-(facts "filled?"
-  sample-state =not=> filled?
-  sample-completed-state => filled?)
-
-(facts "start-matches-finish?"
-  sample-state =not=> start-matches-finish?
-  sample-completed-state => start-matches-finish?)
-
 (facts "count-layouts"
   (count-layouts tiny-test-state) => 1
   (count-layouts small-test-state) => 2

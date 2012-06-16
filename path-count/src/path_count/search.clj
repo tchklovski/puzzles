@@ -24,45 +24,6 @@
 ;; may not be solvable in a reasonable amt of time.
 ;; NOTE -- would be nice to plot solution times vs. grid size
 
-;; TODO: can use bitmaps to do fast tests for the pieces we care about
-
-(comment
-  (defn location-fn-maker
-    "Returns fn which takes offset and returns keyword indicating which
-   location it is, eg :inside"
-    [row-length total-length]
-    (let [col #(rem % row-length)
-          top? #(< % row-length)
-          bottom? #(> % (- total-length row-length))
-          left? #(zero? (col %))
-          right? #(= (dec row-length) (col %))
-          ;; sets to 1 the bits for which fn returns logical true
-          make-bitmap #(reduce (fn [bitmap idx]
-                                  (if (% idx)
-                                    (bit-set bitmap idx)
-                                    bitmap))
-                               0 (range total-length))
-          inside-bitmap (make-bitmap (some-fn top? bottom? left? right?))]
-      (fn [offset]
-        (condp bit-test offset
-          inside-bitmap :inside
-          top-bitmap    (if (bit-test offset)) :top-left)))))
-
-(defn start-matches-finish?
-  "Returns logical true iff start is same position as finish"
-  [{:keys [start-idx finish-idx]}]
-  (= start-idx finish-idx))
-
-(defn finish-cell?
-  "Returns logical true iff start is same position as finish"
-  [{:keys [finish-idx]} offset]
-  (= offset finish-idx))
-
-(defn filled?
-  "Returns logical true iff there are no empty cells in this map"
-  [{cells :cells}]
-  (zero? cells))
-
 (defn score-leaf
   "Returns a score if we can determine it without looking at more cases,
    nil otherwise"

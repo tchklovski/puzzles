@@ -18,6 +18,19 @@
                      [0 0 3]]]
     (make-state sample-rows) => sample-state))
 
+(facts "start-matches-finish?"
+  sample-state =not=> start-matches-finish?
+  sample-completed-state => start-matches-finish?)
+
+(facts "filled?"
+  sample-state =not=> filled?
+  sample-completed-state => filled?)
+
+(facts "finish-cell?"
+  (finish-cell? sample-state 8) => true
+  (finish-cell? sample-state 0) => false
+  (finish-cell? sample-state 7) => false)
+
 (facts "render-state"
   (render-state sample-state) => '([2 0 0] [0 0 0] [0 0 3])
   (render-state sample-completed-state) => '([1 1 1] [1 1 1] [1 1 3]))
