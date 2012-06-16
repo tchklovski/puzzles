@@ -5,17 +5,24 @@
 
 ;; ## Working with "state" of datacenter
 
-;; overall approach: that we recur on the map, reducing the problem to
-;; summing number of layouts over more filled-in maps. For example,
-;; we can move right from source, or move down -- so the overall solution
-;; is the sum of two solutions. We treat cells in which we already put the
-;; "duct" as 1 ("occupied").
+;; overall approach: we iterate over the map, reducing the problem to
+;; summing number of layouts over more filled-in maps, with a
+;; prunded depth first search. For example, we can move right from source,
+;; or move down -- so the overall solution is the sum of two solutions.
+;; We treat cells in which we already put the "duct" as 1 ("occupied").
+;; The finish is (initially) unoccupied.
 
 ;; ### Optimizations
 ;; you should be able to have some invariants/checks about what is solvable
 ;; -- eg a corner that one can't get out of, or a disconnected component
 ;; don't need to be evaluated.
-;; use transients to mutate vectors?
+;; constant factor speedups -- better data structures for state:
+;; we use a single 64 bit int and twiddle its bits. that limits the solver
+;; to at most 64 cells, and is a limitation of the current implementation.
+;; it should be possible to add multi-int support for larger, but note that
+;; solve times may still be going up exponentially, so even 128 cell (2 int)
+;; may not be solvable in a reasonable amt of time.
+;; NOTE -- would be nice to plot solution times vs. grid size
 
 (declare score num-calls)
 
@@ -84,10 +91,12 @@
 (defn show-state [state]
   (doseq [row (render-state state)] (println row)))
 
+;; TODO: partition into 3 files state (up to here), test configs, and logic
+
 ;; ### Test States
 (def test-state
 ;; with neighbor-empty-count optimization: "Elapsed time: 540491.481086 msecs"
-;; 41942385 (42M) scorings
+;; 41942385 (42M) solutions
 ;;  (time (score test-state))
   (make-state
    [[2 0 0 0 0 0 0]
@@ -123,6 +132,12 @@
     [0 0 0 0 0]
     [0 0 0 0 0]
     [0 0 0 0 3]]))
+
+(def populated-test-state
+  (make-state
+   [[1 1 1]
+    [0 0 2]
+    [3 1 0]]))
 
 (def large-test-state
   ;; (time (score large-test-state))
@@ -236,20 +251,16 @@
   [{:keys [start-idx finish-idx] :as state}]
   (let [next-offsets (empty-neighbors state start-idx)
         neighbor-counts (map #(and (not= finish-idx %)
-                                   (count (empty-neighbors state %))) next-offsets)
-        next-offsets (when (every? #(not= 0 %) neighbor-counts)
-                       next-offsets)
-        num-ones (count (filter #(= 1 %) neighbor-counts))
-        next-offsets   (case num-ones
-                         1 [(nth next-offsets (.indexOf (vec neighbor-counts) 1))]
-                         (2 3 4) nil
-                         next-offsets)
-
-        ]
-    (map #(extend-to state %) next-offsets)
-    ;; for each adjacent offset, check the number of empty neighbors it has.
-    ;; if it's not the finish, and
-    ))
+                                   (count (empty-neighbors state %)))
+                             next-offsets)]
+    (when (every? #(not= 0 %) neighbor-counts)
+      (let [num-ones (count (filter #(= 1 %) neighbor-counts))
+            next-offsets   (case num-ones
+                             0 next-offsets
+                             1 [(nth next-offsets
+                                     (.indexOf (vec neighbor-counts) 1))]
+                             nil)]
+        (map #(extend-to state %) next-offsets)))))
 
 ;; if some empty next is not finish, and has only
 
@@ -262,17 +273,12 @@
 ;; isolated islands exist -- track total number of configs considered.
 
 
-;; Key insight: n, the number of steps taken (or remaining) lets you
-;; know what to store of a computation -- at every step, you only need to
-;; have all the variants of n steps solved.
-;; wonder how big the search space gets for the richest config
-
 (defn score
   "Main routine to count the number of valid layouts possible for this state"
   [state]
   (swap! num-calls inc)
   (or (score-leaf state)
-      (when-let [nexts (seq (next-states state))]
+      (if-let [nexts (seq (next-states state))]
         ;; observation: if one branch dead-ends, that means the things that led to it
         ;; up to and *including* the first that had more than 1 option are all bad --
         ;; so the whole tree of going the other way can be tossed!
@@ -281,6 +287,7 @@
         ;; can we leverage lazy seqs?
         ;; is recurring somehow better?
         (sum (map score nexts))
+        0
 )))
 ;; there must be at most one of the following, and it must neighbor the start state:
 ;; an empty that's not a finish with less than two empty cells nearby
@@ -293,8 +300,6 @@
       (sum (map (fn [n nn] (or (score-leaf n)
                                (sum (map score nn))))
                 nexts nexts2)))))
-;; can have check-board -- for sanity check upfront to see if solvable...
-;; num empty neighbors datastructure -- for empty cells
 
 ;;(defn hash-key [{:keys cells start-idx}] [cells start-idx])
 
@@ -308,4 +313,19 @@
   (do (use 'quora.datacenter-cooling.state :reload)
       (time (count-calls-in-scoring medium-test-state))))
 
+;; ## Misc Notes
+
+;; lazy fib for inspiration of how this search may be implemented
 ;; (def fib (lazy-cat [0 1] (map + fib (rest fib))))
+
+;; can have `check-board` fn which sanity checks upfront to see if solvable...
+;;
+;; must not NPE on other boards -- with a dead end?
+;;
+;; num empty neighbors datastructure -- for empty cells
+
+;; Other observations: n, the number of steps taken (or remaining) lets you
+;; know what to store of a computation -- at every step, you only need to
+;; have all the variants of n steps solved.
+;; wonder how big the search space gets for the richest config
+

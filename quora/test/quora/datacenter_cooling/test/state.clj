@@ -44,4 +44,5 @@
 
 (facts "scoring"
   (score tiny-test-state) => 1
-  (score small-test-state) => 2)
+  (score small-test-state) => 2
+  (score populated-test-state) => 0)
