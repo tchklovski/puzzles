@@ -5,12 +5,14 @@
 (def sample-state
   "An example of the state the search operates on."
   {:cells 510 ;; 1's for "empty" cells, ie powers of 2 of 2 through 8 - so 2 short of 512
-   :total-length 9, :row-length 3, :start-idx 0, :finish-idx 8})
+   :total-length 9, :row-length 3, :start-idx 0, :finish-idx 8
+   :border-tester [true true true true nil true true true true]})
 
 (def sample-completed-state
   "An example of completed state."
   {:cells 0
-   :row-length 3, :total-length 9, :start-idx 8, :finish-idx 8})
+   :row-length 3, :total-length 9, :start-idx 8, :finish-idx 8
+   :border-tester [true true true true nil true true true true]})
 
 (fact "make-state"
   (let [sample-rows [[2 0 0]
@@ -32,7 +34,8 @@
   (finish-cell? sample-state 7) => false)
 
 (facts "border?"
-  (let [border? #((make-border-tester sample-state) %)]
+  (let [border? #((make-border-tester (:row-length sample-state)
+                                      (:total-length sample-state)) %)]
     (every? border? #{0 1 2 3 5 6 7 8}) => true
     4 =not=> border?))
 

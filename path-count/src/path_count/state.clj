@@ -9,7 +9,7 @@
 
 (defrecord State [cells
                   total-length row-length
-                  start-idx finish-idx])
+                  start-idx finish-idx border-tester])
 
 ;; we make "taken" be 0 rather than 1 so that `zero?` means filled
 (def mark-cell-taken bit-clear)
@@ -17,6 +17,7 @@
 (def cell-empty? bit-test)
 
 ;; ### Inputting State
+(declare make-border-tester)
 (let [length-one? #(= 1 (count %))
       consistent-lengths? #(length-one? (distinct (map count %)))
       rows-have-one? (fn [rows elt]
@@ -36,6 +37,7 @@
     (let [cells (vec (apply concat rows))
           total-length (count cells)
           row-length (count (first rows))
+          border-tester (make-border-tester row-length total-length)
           idx #(.indexOf cells %)
           start-idx (idx start-cell)
           finish-idx (idx finish-cell)
@@ -44,7 +46,7 @@
           cell-indices (keep-indexed
                         (fn [idx cell] (when (= empty-cell cell) idx)) cells)
           cells (reduce mark-cell-empty 0 cell-indices)]
-      (State. cells total-length row-length start-idx finish-idx))))
+      (State. cells total-length row-length start-idx finish-idx border-tester))))
 
 ;; Some tests on states
 (defn start-matches-finish?
@@ -65,14 +67,14 @@
 (defn make-border-tester
   "Returns ifn which for a valid offset returns whether that offset is on the
    grid border."
-  [{:keys [row-length total-length]}]
+  [row-length total-length]
   (let [col #(rem % row-length)
         top? #(< % row-length)
         bottom? #(> % (- total-length row-length))
         left? #(zero? (col %))
         right? #(= (dec row-length) (col %))
         border? (some-fn top? bottom? left? right?)]
-    (vec (map border? (range total-length)))))
+    (mapv border? (range total-length))))
 
 ;; ### Outputting State
 (defn render-state

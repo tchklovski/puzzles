@@ -25,8 +25,8 @@
 ;; NOTE -- would be nice to plot solution times vs. grid size
 
 (defn score-leaf
-  "Returns a score if we can determine it without looking at more cases,
-   nil otherwise"
+  "The contract is that it returns a score if it can figure it out, or
+   nil if counting over next steps should be done"
   [state]
   (when (start-matches-finish? state)
     (if (filled? state) 1 0)))
@@ -80,6 +80,28 @@
                   (.indexOf (vec neighbor-counts) 1))]
           nil)))))
 
+(defn border-touch? [{:keys [border-tester start-idx]}]
+  (border-tester start-idx))
+
+;; FIXME
+(defn good-border-touch? [{:keys [good-edge-cells start-idx]}]
+  ;; (good-edge-cells start-idx)
+  true)
+
+(defn update-edge-touch* [{:keys [good-edge-cells start-idx] :as state}]
+  ;; (update-in state [:good-edge-cells] (get-neighbors start-idx))
+  state)
+
+(defn update-edge-touch
+  "Returns nil if this edge touch invalidated the state,
+   or updated state otherwise"
+  [state]
+  (if (border-touch? state)
+    (when (good-border-touch? state)
+      (update-edge-touch* state))
+    state))
+
+
 (defn next-states
   "Return a collection of states. Prunes states that are not likely to be
    viable"
@@ -87,7 +109,10 @@
   (->> start-idx
        (empty-neighbors state)
        (prune-next-offsets state)
-       (map #(extend-to state %))))
+       (map #(extend-to state %))
+       ;; FIXME -- unfinished
+       ;; (keep update-edge-touch)
+       ))
 
 ;; ### Counting number of good states
 (defn sum [args]
