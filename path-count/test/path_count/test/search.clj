@@ -1,8 +1,8 @@
 (ns path-count.test.search
+    (:use :reload path-count.search)
   (:use [path-count
          [state :only [make-state render-state]]
-         samples
-         search])
+         samples])
   (:use [midje.sweet]))
 
 (def sample-state

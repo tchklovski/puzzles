@@ -25,6 +25,7 @@
 ;; NOTE -- would be nice to plot solution times vs. grid size
 
 ;; TODO: can use bitmaps to do fast tests for the pieces we care about
+
 (comment
   (defn location-fn-maker
     "Returns fn which takes offset and returns keyword indicating which
@@ -41,9 +42,7 @@
                                     (bit-set bitmap idx)
                                     bitmap))
                                0 (range total-length))
-          inside-bitmap (make-bitmap (some-fn top? bottom? left? right?))
-          left-bitmap (make-bitmap left?)
-          left-bitmap (make-bitmap left?)]
+          inside-bitmap (make-bitmap (some-fn top? bottom? left? right?))]
       (fn [offset]
         (condp bit-test offset
           inside-bitmap :inside
@@ -104,25 +103,30 @@
        (neighbors row-length total-length)
        (filter #(cell-empty? cells %))))
 
+(defn prune-next-offsets
+  "For non-finish next offsets, compute how many
+   neighbors each of them has. then prune non-viable cases"
+  ;; NB: could maybe do more about checking the finish cell as well
+  [{:keys [finish-idx] :as state} next-offsets]
+  (let [neighbor-counts (map #(and (not= finish-idx %)
+                                    (count (empty-neighbors state %)))
+                             next-offsets)]
+    (when (every? #(not= 0 %) neighbor-counts)
+      (let [num-ones (count (filter #(= 1 %) neighbor-counts))]
+        (case num-ones
+          0 next-offsets
+          1 [(nth next-offsets
+                  (.indexOf (vec neighbor-counts) 1))]
+          nil)))))
+
 (defn next-states
   "Return a collection of states. Prunes states that are not likely to be
    viable"
-  [{:keys [start-idx finish-idx] :as state}]
-  (let [next-offsets (empty-neighbors state start-idx)
-        ;; for non-finish neighbors, compute how many
-        ;; neighbors each of them has. then prune non-viable cases.
-        ;; NB: could maybe do more about checking the finish cell as well
-        neighbor-counts (map #(and (not= finish-idx %)
-                                   (count (empty-neighbors state %)))
-                             next-offsets)]
-    (when (every? #(not= 0 %) neighbor-counts)
-      (let [num-ones (count (filter #(= 1 %) neighbor-counts))
-            next-offsets   (case num-ones
-                             0 next-offsets
-                             1 [(nth next-offsets
-                                     (.indexOf (vec neighbor-counts) 1))]
-                             nil)]
-        (map #(extend-to state %) next-offsets)))))
+  [{:keys [start-idx] :as state}]
+  (->> start-idx
+       (empty-neighbors state)
+       (prune-next-offsets state)
+       (map #(extend-to state %))))
 
 ;; ### Counting number of good states
 (defn sum [args]
@@ -146,14 +150,18 @@
   @num-calls)
 
 (comment
+  ;; use tis to
   (do (use 'path-count.search :reload)
       (use 'path-count.samples :reload)
-      (time (count-calls-in-scoring medium-test-state))))
+      (time (calls-in-layout large-test-state))))
 
 ;; ## Misc Notes
 
-;; lazy fib for inspiration of how this search may be implemented
-;; (def fib (lazy-cat [0 1] (map + fib (rest fib))))
+;; TODO: Opt: after first touch of the border, we set up "allowed touch"
+;; at edges of stretch of ones along border contiguous to the first touch;
+;; all other along the border are disallowed. At consequent touch of border,
+;; we update the allowed spots.
+;; upon allowed touch, the disallowed touch is updated
 
 ;; can have `check-board` fn which sanity checks upfront to see if solvable...
 
@@ -176,3 +184,6 @@
 
 ;; note that we know if it's filled by how many steps we took -- but in current
 ;; approach the zero? test is cheap
+
+;; lazy fib for inspiration of how this search may be implemented
+;; (def fib (lazy-cat [0 1] (map + fib (rest fib))))
