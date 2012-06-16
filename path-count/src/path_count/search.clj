@@ -96,17 +96,22 @@
     :start-idx offset,
     :cells (mark-cell-taken cells offset)))
 
-(defn empty-neighbors [{:keys [cells row-length total-length]} offset]
+(defn empty-neighbors
+  "Returns a colleciton of offsets (cells) that correspond to empty
+   neighbor cells, given a state and an offset"
+  [{:keys [cells row-length total-length]} offset]
   (->> offset
        (neighbors row-length total-length)
        (filter #(cell-empty? cells %))))
 
 (defn next-states
-  "Return a collection of states"
+  "Return a collection of states. Prunes states that are not likely to be
+   viable"
   [{:keys [start-idx finish-idx] :as state}]
   (let [next-offsets (empty-neighbors state start-idx)
-        ;; for non-finish neighbors, compute how many neighbors each of
-        ;; them has
+        ;; for non-finish neighbors, compute how many
+        ;; neighbors each of them has. then prune non-viable cases.
+        ;; NB: could maybe do more about checking the finish cell as well
         neighbor-counts (map #(and (not= finish-idx %)
                                    (count (empty-neighbors state %)))
                              next-offsets)]
@@ -119,7 +124,7 @@
                              nil)]
         (map #(extend-to state %) next-offsets)))))
 
-;; ### Counting number of goos states
+;; ### Counting number of good states
 (defn sum [args]
   (reduce (fn [sum v] ((fnil + 0) v sum)) 0 args))
 
