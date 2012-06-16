@@ -31,6 +31,11 @@
   (finish-cell? sample-state 0) => false
   (finish-cell? sample-state 7) => false)
 
+(facts "border?"
+  (let [border? #((make-border-tester sample-state) %)]
+    (every? border? #{0 1 2 3 5 6 7 8}) => true
+    4 =not=> border?))
+
 (facts "render-state"
   (render-state sample-state) => '([2 0 0] [0 0 0] [0 0 3])
   (render-state sample-completed-state) => '([1 1 1] [1 1 1] [1 1 3]))

@@ -46,18 +46,6 @@
           cells (reduce mark-cell-empty 0 cell-indices)]
       (State. cells total-length row-length start-idx finish-idx))))
 
-(defn make-border-tester
-  "Returns ifn which for a valid offset returns whether that offset is on the
-   grid border."
-  [row-length total-length]
-  (let [col #(rem % row-length)
-        top? #(< % row-length)
-        bottom? #(> % (- total-length row-length))
-        left? #(zero? (col %))
-        right? #(= (dec row-length) (col %))
-        border? (some-fn top? bottom? left? right?)]
-    (vec (map border? (range total-length)))))
-
 ;; Some tests on states
 (defn start-matches-finish?
   "Returns logical true iff start is same position as finish"
@@ -74,6 +62,17 @@
   [{cells :cells}]
   (zero? cells))
 
+(defn make-border-tester
+  "Returns ifn which for a valid offset returns whether that offset is on the
+   grid border."
+  [{:keys [row-length total-length]}]
+  (let [col #(rem % row-length)
+        top? #(< % row-length)
+        bottom? #(> % (- total-length row-length))
+        left? #(zero? (col %))
+        right? #(= (dec row-length) (col %))
+        border? (some-fn top? bottom? left? right?)]
+    (vec (map border? (range total-length)))))
 
 ;; ### Outputting State
 (defn render-state
