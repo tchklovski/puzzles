@@ -108,10 +108,11 @@
           (remove known
                   (distinct (mapcat #(taken-edge-neighbors state %)
                                     (remove (or good-edge-cells #{})
-                                            fronteer))))]
+                                            fronteer))))
+          new-known (into known fronteer)]
       (if (seq new-fronteer)
-        (recur new-fronteer (into known fronteer))
-        (into known fronteer)))))
+        (recur new-fronteer new-known)
+        new-known))))
 
 (defn do-update-edge-touch [{:keys [good-edge-cells] :as state}]
   ;; NOTE: for speed, this can be a bitmap
