@@ -64,21 +64,13 @@
        (neighbors row-length total-length)
        (filter #(cell-empty? cells %))))
 
-(defn expand-edge-fronteer [{:keys [edge-tester] :as state} fronteer inside]
-  (let [edge-neighbors (filter edge-tester
-                               (distinct (mapcat #(empty-neighbors state %)
-                                                 fronteer)))]
-    ;; TODO: increase inside by current; figure out what the fronteer is
-    ;; of non-empty (or current)
-    ))
-
-(defn edge-empty-boundary
-  "Return collection of cells 9at most 2) that are empty if we walk along
-   taken edge cells from `start-idx` (which should be on edge too)"
-  [{:keys [start-idx edge-tester] :as state}]
-  (filter edge-tester
-          (mapcat #(empty-neighbors state %)
-               (expand-edge-fronteer state [start-idx] []))))
+(defn taken-neighbors
+  "Returns a colleciton of offsets (cells) that correspond to empty
+   neighbor cells, given a state and an offset"
+  [{:keys [cells row-length total-length]} offset]
+  (->> offset
+       (neighbors row-length total-length)
+       (remove #(cell-empty? cells %))))
 
 (defn prune-next-offsets
   "For non-finish next offsets, compute how many
@@ -96,6 +88,7 @@
                   (.indexOf (vec neighbor-counts) 1))]
           nil)))))
 
+
 (defn edge-touch? [{:keys [edge-tester start-idx]}]
   (edge-tester start-idx))
 
@@ -103,28 +96,42 @@
   (or (not good-edge-cells)
       (good-edge-cells start-idx)))
 
-(defn update-edge-touch* [{:keys [good-edge-cells start-idx edge-tester]
-                           :as state}]
-  (let [new-good-edge-cells
-        (if good-edge-cells
-          ;; overgenerating some is ok
-          ;; NOTE: for speed, this can be a bitmap
-          (into good-edge-cells
-                (filter edge-tester
-                        (empty-neighbors state start-idx)))
-           ;; FIXME: compute near contiguous run along the touch
-          good-edge-cells
-          )]
-    (assoc state :good-edge-cells new-good-edge-cells)))
+(defn taken-edge-neighbors [{:keys [edge-tester] :as state} offset]
+  (filter edge-tester (taken-neighbors state offset)))
+
+(defn edge-filled-stretch
+  "Return collection of cells (at most 2) that are empty if we walk along
+   taken edge cells from `start-idx` (which should be on edge too)"
+  [{:keys [start-idx edge-tester good-edge-cells] :as state}]
+  (loop [fronteer [start-idx] known #{}]
+    (let [new-fronteer
+          (remove known
+                  (distinct (mapcat #(taken-edge-neighbors state %)
+                                    fronteer)))]
+      (if (seq new-fronteer)
+        (recur new-fronteer (into known fronteer))
+        known))))
+
+(defn do-update-edge-touch [{:keys [good-edge-cells] :as state}]
+  ;; NOTE: for speed, this can be a bitmap
+  ;; has to start as nil though
+  (let [stretch (edge-filled-stretch state)
+        new-state (assoc state :good-edge-cells (into stretch good-edge-cells))]
+    (when (or (and good-edge-cells (some good-edge-cells stretch))
+              (not good-edge-cells)
+              new-state))))
 
 (defn update-edge-touch
   "Returns nil if this edge touch invalidated the state,
    or updated state otherwise"
   [state]
-  (if (edge-touch? state)
-    (when (good-edge-touch? state)
-      (update-edge-touch* state))
-    state))
+  (comment (if (edge-touch? state)
+             (when (good-edge-touch? state)
+               (do-update-edge-touch state))
+             state))
+  state)
+
+
 
 
 (defn next-states
@@ -135,8 +142,7 @@
        (empty-neighbors state)
        (prune-next-offsets state)
        (map #(extend-to state %))
-       ;;(keep update-edge-touch)
-       ))
+       (keep update-edge-touch)))
 
 ;; ### Counting number of good states
 (defn sum [args]
@@ -144,14 +150,17 @@
 
 (declare num-calls)
 
-(defn count-layouts
+(defn count-layouts*
   "Main routine to count the number of valid layouts possible for this state"
   [state]
   (swap! num-calls inc)
   (or (score-leaf state)
       (when-let [nexts (seq (next-states state))]
-        (sum (map count-layouts nexts)))
+        (sum (map count-layouts* nexts)))
       0))
+
+(defn count-layouts [state]
+  (count-layouts* (update-edge-touch state)))
 
 (def num-calls (atom 0))
 (defn calls-in-layout [state]
