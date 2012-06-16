@@ -32,15 +32,16 @@
 
 (facts "edge-filled-stretch"
   (edge-filled-stretch sample-state) => #{0}
-  (edge-filled-stretch sample-completed-state) => #{1 2 3 5 6 7 8})
+  (edge-filled-stretch sample-completed-state) => #{0 1 2 3 5 6 7 8})
 
 
 
 (facts "next-states"
   (let [state (make-state [[2 1]
                            [0 3]])]
-    (next-states state)) => [(make-state [[1 1]
-                                          [2 3]])])
+    (next-states state)) => [(assoc  (make-state [[1 1]
+                                                  [2 3]])
+                                :good-edge-cells #{0 1 2})])
 
 (facts "count-layouts"
   (count-layouts tiny-test-state) => 1

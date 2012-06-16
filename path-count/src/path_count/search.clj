@@ -107,10 +107,11 @@
     (let [new-fronteer
           (remove known
                   (distinct (mapcat #(taken-edge-neighbors state %)
-                                    fronteer)))]
+                                    (remove (or good-edge-cells #{})
+                                            fronteer))))]
       (if (seq new-fronteer)
         (recur new-fronteer (into known fronteer))
-        known))))
+        (into known fronteer)))))
 
 (defn do-update-edge-touch [{:keys [good-edge-cells] :as state}]
   ;; NOTE: for speed, this can be a bitmap
@@ -118,18 +119,17 @@
   (let [stretch (edge-filled-stretch state)
         new-state (assoc state :good-edge-cells (into stretch good-edge-cells))]
     (when (or (and good-edge-cells (some good-edge-cells stretch))
-              (not good-edge-cells)
-              new-state))))
+              (not good-edge-cells))
+      new-state)))
 
 (defn update-edge-touch
   "Returns nil if this edge touch invalidated the state,
    or updated state otherwise"
   [state]
-   #_ (if (edge-touch? state)
+   (if (edge-touch? state)
     (when (good-edge-touch? state)
       (do-update-edge-touch state))
-    state)
-  state)
+    state))
 
 
 
@@ -150,17 +150,14 @@
 
 (declare num-calls)
 
-(defn count-layouts*
+(defn count-layouts
   "Main routine to count the number of valid layouts possible for this state"
   [state]
   (swap! num-calls inc)
   (or (score-leaf state)
       (when-let [nexts (seq (next-states state))]
-        (sum (map count-layouts* nexts)))
+        (sum (map count-layouts nexts)))
       0))
-
-(defn count-layouts [state]
-  (count-layouts* (update-edge-touch state)))
 
 (def num-calls (atom 0))
 (defn calls-in-layout [state]
@@ -169,7 +166,7 @@
   @num-calls)
 
 (comment
-  ;; use tis to
+  ;; use this to run the states
   (do (use 'path-count.search :reload)
       (use 'path-count.samples :reload)
       (time (calls-in-layout large-test-state))))
