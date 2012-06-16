@@ -31,7 +31,7 @@
   (taken-neighbors sample-state 1) => [0])
 
 (facts "edge-filled-stretch"
-  (edge-filled-stretch sample-state) => #{}
+  (edge-filled-stretch sample-state) => #{0}
   (edge-filled-stretch sample-completed-state) => #{1 2 3 5 6 7 8})
 
 

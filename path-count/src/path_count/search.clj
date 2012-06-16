@@ -92,18 +92,18 @@
 (defn edge-touch? [{:keys [edge-tester start-idx]}]
   (edge-tester start-idx))
 
-(defn good-edge-touch? [{:keys [good-edge-cells start-idx]}]
-  (or (not good-edge-cells)
-      (good-edge-cells start-idx)))
-
 (defn taken-edge-neighbors [{:keys [edge-tester] :as state} offset]
   (filter edge-tester (taken-neighbors state offset)))
+
+(defn good-edge-touch? [{:keys [good-edge-cells start-idx] :as state}]
+  (or (not good-edge-cells)
+      (some good-edge-cells (taken-edge-neighbors state start-idx))))
 
 (defn edge-filled-stretch
   "Return collection of cells (at most 2) that are empty if we walk along
    taken edge cells from `start-idx` (which should be on edge too)"
   [{:keys [start-idx edge-tester good-edge-cells] :as state}]
-  (loop [fronteer [start-idx] known #{}]
+  (loop [fronteer [start-idx] known #{start-idx}]
     (let [new-fronteer
           (remove known
                   (distinct (mapcat #(taken-edge-neighbors state %)
@@ -125,10 +125,10 @@
   "Returns nil if this edge touch invalidated the state,
    or updated state otherwise"
   [state]
-  (comment (if (edge-touch? state)
-             (when (good-edge-touch? state)
-               (do-update-edge-touch state))
-             state))
+   #_ (if (edge-touch? state)
+    (when (good-edge-touch? state)
+      (do-update-edge-touch state))
+    state)
   state)
 
 
