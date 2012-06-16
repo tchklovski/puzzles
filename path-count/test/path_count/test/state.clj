@@ -1,5 +1,5 @@
-(ns quora.datacenter-cooling.test.state
-  (:use :reload [quora.datacenter-cooling.state])
+(ns path-count.test.state
+  (:use :reload [path-count.state])
   (:use [midje.sweet]))
 
 (def sample-state
@@ -18,4 +18,6 @@
                      [0 0 3]]]
     (make-state sample-rows) => sample-state))
 
-;; TODO -- test render-state
+(facts "render-state"
+  (render-state sample-state) => '([2 0 0] [0 0 0] [0 0 3])
+  (render-state sample-completed-state) => '([1 1 1] [1 1 1] [1 1 3]))

@@ -1,29 +1,5 @@
-(ns quora.datacenter-cooling.state
-  "State representation for the Quora \"datacenter cooling\"
-   [puzzle](http://www.quora.com/challenges#datacenter_cooling)")
-
-;; http://www.quora.com/about/challenges#datacenter_cooling
-
-;; ## Working with "state" of datacenter
-
-;; overall approach: we iterate over the map, reducing the problem to
-;; summing number of layouts over more filled-in maps, with a
-;; prunded depth first search. For example, we can move right from source,
-;; or move down -- so the overall solution is the sum of two solutions.
-;; We treat cells in which we already put the "duct" as 1 ("occupied").
-;; The finish is (initially) unoccupied.
-
-;; ### Optimizations
-;; you should be able to have some invariants/checks about what is solvable
-;; -- eg a corner that one can't get out of, or a disconnected component
-;; don't need to be evaluated.
-;; constant factor speedups -- better data structures for state:
-;; we use a single 64 bit int and twiddle its bits. that limits the solver
-;; to at most 64 cells, and is a limitation of the current implementation.
-;; it should be possible to add multi-int support for larger, but note that
-;; solve times may still be going up exponentially, so even 128 cell (2 int)
-;; may not be solvable in a reasonable amt of time.
-;; NOTE -- would be nice to plot solution times vs. grid size
+(ns path-count.state
+  "State representation for the path count puzzle")
 
 ;; ### Sugar and enums
 (def empty-cell 0)

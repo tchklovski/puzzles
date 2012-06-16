@@ -1,9 +1,28 @@
-(ns quora.datacenter-cooling.search
-  "Search (core logic) for the Quora \"datacenter cooling\"
-   [puzzle](http://www.quora.com/challenges#datacenter_cooling)"
-  (:use [quora.datacenter-cooling.state]))
+(ns path-count.search
+  "Search (core logic) for a search puzzle"
+  (:use [path-count.state]))
 
-;; ### Grid tests
+
+;; ## Working with "state"
+
+;; overall approach: we iterate over the map, reducing the problem to
+;; summing number of layouts over more filled-in maps, with a
+;; prunded depth first search. For example, we can move right from source,
+;; or move down -- so the overall solution is the sum of two solutions.
+;; We treat cells which we already visited as 1 ("occupied").
+;; The start is initially occupied and finish unoccupied.
+
+;; ### Optimizations
+;; you should be able to have some invariants/checks about what is solvable
+;; -- eg a corner that one can't get out of, or a disconnected component
+;; don't need to be evaluated.
+;; constant factor speedups -- better data structures for state:
+;; we use a single 64 bit int and twiddle its bits. that limits the solver
+;; to at most 64 cells, and is a limitation of the current implementation.
+;; it should be possible to add multi-int support for larger, but note that
+;; solve times may still be going up exponentially, so even 128 cell (2 int)
+;; may not be solvable in a reasonable amt of time.
+;; NOTE -- would be nice to plot solution times vs. grid size
 
 ;; TODO: can use bitmaps to do fast tests for the pieces we care about
 (comment
@@ -31,22 +50,20 @@
           top-bitmap    (if (bit-test offset)) :top-left)))))
 
 (defn start-matches-finish?
-  "Logical true iff start is same position as finish"
+  "Returns logical true iff start is same position as finish"
   [{:keys [start-idx finish-idx]}]
   (= start-idx finish-idx))
 
 (defn finish-cell?
-  "Logical true iff start is same position as finish"
+  "Returns logical true iff start is same position as finish"
   [{:keys [finish-idx]} offset]
   (= offset finish-idx))
 
-(defn filled? [{cells :cells}]
+(defn filled?
   "Returns logical true iff there are no empty cells in this map"
-  ;; Optimization: keep track of number of empties explicitly
-  ;; or, if we trim, it would trim to 1x1
+  [{cells :cells}]
   (zero? cells))
 
-;; note that we know if it's filled by how many steps we took
 (defn score-leaf
   "Returns a score if we can determine it without looking at more cases,
    nil otherwise"
@@ -88,6 +105,8 @@
   "Return a collection of states"
   [{:keys [start-idx finish-idx] :as state}]
   (let [next-offsets (empty-neighbors state start-idx)
+        ;; for non-finish neighbors, compute how many neighbors each of
+        ;; them has
         neighbor-counts (map #(and (not= finish-idx %)
                                    (count (empty-neighbors state %)))
                              next-offsets)]
@@ -100,35 +119,30 @@
                              nil)]
         (map #(extend-to state %) next-offsets)))))
 
-;; if some empty next is not finish, and has only
-
-;; Counting / Scoring
+;; ### Counting number of goos states
 (defn sum [args]
   (reduce (fn [sum v] ((fnil + 0) v sum)) 0 args))
 
-;; opt: could try to discard "hopeless" states faster
-;; opt -- better search -- trigger possible discard when edges touched and
-;; isolated islands exist -- track total number of configs considered.
-
 (declare num-calls)
 
-(defn score
+(defn count-layouts
   "Main routine to count the number of valid layouts possible for this state"
   [state]
   (swap! num-calls inc)
   (or (score-leaf state)
       (when-let [nexts (seq (next-states state))]
-        (sum (map score nexts)))
+        (sum (map count-layouts nexts)))
       0))
 
 (def num-calls (atom 0))
-(defn count-calls-in-scoring [state]
+(defn calls-in-layout [state]
   (def num-calls (atom 0))
-  (score state)
+  (count-layouts state)
   @num-calls)
 
 (comment
-  (do (use 'quora.datacenter-cooling.state :reload)
+  (do (use 'path-count.search :reload)
+      (use 'path-count.samples :reload)
       (time (count-calls-in-scoring medium-test-state))))
 
 ;; ## Misc Notes
@@ -137,7 +151,11 @@
 ;; (def fib (lazy-cat [0 1] (map + fib (rest fib))))
 
 ;; can have `check-board` fn which sanity checks upfront to see if solvable...
-;;
+
+;; opt: could try to discard "hopeless" states faster
+;; opt -- better search -- trigger possible discard when edges touched and
+;; isolated islands exist -- track total number of configs considered.
+
 ;; num empty neighbors datastructure -- for empty cells
 
 ;; Other observations: n, the number of steps taken (or remaining) lets you
@@ -150,3 +168,6 @@
 
 ;; can we leverage lazy seqs?
 ;; is recurring somehow better?
+
+;; note that we know if it's filled by how many steps we took -- but in current
+;; approach the zero? test is cheap

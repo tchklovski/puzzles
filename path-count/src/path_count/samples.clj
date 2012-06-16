@@ -1,7 +1,6 @@
-(ns quora.datacenter-cooling.samples
-  "Sample states for the Quora \"datacenter cooling\"
-   [puzzle](http://www.quora.com/challenges#datacenter_cooling)"
-  (:use [quora.datacenter-cooling.state :only (make-state)]))
+(ns path-count.samples
+  "Sample states for the path count puzzle"
+  (:use [path-count.state :only (make-state)]))
 
 ;; ### Test States
 (def test-state

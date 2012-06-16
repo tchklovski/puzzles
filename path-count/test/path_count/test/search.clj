@@ -1,5 +1,5 @@
-(ns quora.datacenter-cooling.test.search
-  (:use [quora.datacenter-cooling
+(ns path-count.test.search
+  (:use [path-count
          [state :only [make-state render-state]]
          samples
          search])
@@ -35,11 +35,7 @@
   sample-state =not=> start-matches-finish?
   sample-completed-state => start-matches-finish?)
 
-(facts "render-state"
-  (render-state sample-state) => '([2 0 0] [0 0 0] [0 0 3])
-  (render-state sample-completed-state) => '([1 1 1] [1 1 1] [1 1 3]))
-
-(facts "scoring"
-  (score tiny-test-state) => 1
-  (score small-test-state) => 2
-  (score populated-test-state) => 0)
+(facts "count-layouts"
+  (count-layouts tiny-test-state) => 1
+  (count-layouts small-test-state) => 2
+  (count-layouts populated-test-state) => 0)
