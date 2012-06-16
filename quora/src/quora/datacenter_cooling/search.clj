@@ -104,7 +104,7 @@
 
 ;; Counting / Scoring
 (defn sum [args]
-  (reduce (fn [sum v] (+ sum (or v 0))) 0 args))
+  (reduce (fn [sum v] ((fnil + 0) v sum)) 0 args))
 
 ;; opt: could try to discard "hopeless" states faster
 ;; opt -- better search -- trigger possible discard when edges touched and
@@ -117,30 +117,9 @@
   [state]
   (swap! num-calls inc)
   (or (score-leaf state)
-      (if-let [nexts (seq (next-states state))]
-        ;; observation: if one branch dead-ends, that means the things that led to it
-        ;; up to and *including* the first that had more than 1 option are all bad --
-        ;; so the whole tree of going the other way can be tossed!
-        ;; can we do nexts3 etc?
-        ;; so "single next" can be chased before we do the nexts2 analysis?
-        ;; can we leverage lazy seqs?
-        ;; is recurring somehow better?
-        (sum (map score nexts))
-        0
-)))
-;; there must be at most one of the following, and it must neighbor the start state:
-;; an empty that's not a finish with less than two empty cells nearby
-
-
-(comment
-  (let [nexts2 (map next-states nexts)]
-    (if (some empty? nexts2)
-      (sum (map score-leaf nexts))
-      (sum (map (fn [n nn] (or (score-leaf n)
-                               (sum (map score nn))))
-                nexts nexts2)))))
-
-;;(defn hash-key [{:keys cells start-idx}] [cells start-idx])
+      (when-let [nexts (seq (next-states state))]
+        (sum (map score nexts)))
+      0))
 
 (def num-calls (atom 0))
 (defn count-calls-in-scoring [state]
@@ -166,3 +145,8 @@
 ;; have all the variants of n steps solved.
 ;; wonder how big the search space gets for the richest config
 
+
+;;(defn hash-key [{:keys cells start-idx}] [cells start-idx])
+
+;; can we leverage lazy seqs?
+;; is recurring somehow better?
