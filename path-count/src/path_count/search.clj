@@ -64,6 +64,22 @@
        (neighbors row-length total-length)
        (filter #(cell-empty? cells %))))
 
+(defn expand-edge-fronteer [{:keys [edge-tester] :as state} fronteer inside]
+  (let [edge-neighbors (filter edge-tester
+                               (distinct (mapcat #(empty-neighbors state %)
+                                                 fronteer)))]
+    ;; TODO: increase inside by current; figure out what the fronteer is
+    ;; of non-empty (or current)
+    ))
+
+(defn edge-empty-boundary
+  "Return collection of cells 9at most 2) that are empty if we walk along
+   taken edge cells from `start-idx` (which should be on edge too)"
+  [{:keys [start-idx edge-tester] :as state}]
+  (filter edge-tester
+          (mapcat #(empty-neighbors state %)
+               (expand-edge-fronteer state [start-idx] []))))
+
 (defn prune-next-offsets
   "For non-finish next offsets, compute how many
    neighbors each of them has. then prune non-viable cases"
@@ -80,24 +96,33 @@
                   (.indexOf (vec neighbor-counts) 1))]
           nil)))))
 
-(defn border-touch? [{:keys [border-tester start-idx]}]
-  (border-tester start-idx))
+(defn edge-touch? [{:keys [edge-tester start-idx]}]
+  (edge-tester start-idx))
 
-;; FIXME
-(defn good-border-touch? [{:keys [good-edge-cells start-idx]}]
-  ;; (good-edge-cells start-idx)
-  true)
+(defn good-edge-touch? [{:keys [good-edge-cells start-idx]}]
+  (or (not good-edge-cells)
+      (good-edge-cells start-idx)))
 
-(defn update-edge-touch* [{:keys [good-edge-cells start-idx] :as state}]
-  ;; (update-in state [:good-edge-cells] (get-neighbors start-idx))
-  state)
+(defn update-edge-touch* [{:keys [good-edge-cells start-idx edge-tester]
+                           :as state}]
+  (let [new-good-edge-cells
+        (if good-edge-cells
+          ;; overgenerating some is ok
+          ;; NOTE: for speed, this can be a bitmap
+          (into good-edge-cells
+                (filter edge-tester
+                        (empty-neighbors state start-idx)))
+           ;; FIXME: compute near contiguous run along the touch
+          good-edge-cells
+          )]
+    (assoc state :good-edge-cells new-good-edge-cells)))
 
 (defn update-edge-touch
   "Returns nil if this edge touch invalidated the state,
    or updated state otherwise"
   [state]
-  (if (border-touch? state)
-    (when (good-border-touch? state)
+  (if (edge-touch? state)
+    (when (good-edge-touch? state)
       (update-edge-touch* state))
     state))
 
@@ -110,8 +135,7 @@
        (empty-neighbors state)
        (prune-next-offsets state)
        (map #(extend-to state %))
-       ;; FIXME -- unfinished
-       ;; (keep update-edge-touch)
+       ;;(keep update-edge-touch)
        ))
 
 ;; ### Counting number of good states

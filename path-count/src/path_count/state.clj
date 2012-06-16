@@ -9,7 +9,7 @@
 
 (defrecord State [cells
                   total-length row-length
-                  start-idx finish-idx border-tester])
+                  start-idx finish-idx edge-tester good-edge-cells])
 
 ;; we make "taken" be 0 rather than 1 so that `zero?` means filled
 (def mark-cell-taken bit-clear)
@@ -17,7 +17,7 @@
 (def cell-empty? bit-test)
 
 ;; ### Inputting State
-(declare make-border-tester)
+(declare make-edge-tester)
 (let [length-one? #(= 1 (count %))
       consistent-lengths? #(length-one? (distinct (map count %)))
       rows-have-one? (fn [rows elt]
@@ -37,7 +37,8 @@
     (let [cells (vec (apply concat rows))
           total-length (count cells)
           row-length (count (first rows))
-          border-tester (make-border-tester row-length total-length)
+          edge-tester (make-edge-tester row-length total-length)
+          good-edge-cells nil
           idx #(.indexOf cells %)
           start-idx (idx start-cell)
           finish-idx (idx finish-cell)
@@ -46,7 +47,8 @@
           cell-indices (keep-indexed
                         (fn [idx cell] (when (= empty-cell cell) idx)) cells)
           cells (reduce mark-cell-empty 0 cell-indices)]
-      (State. cells total-length row-length start-idx finish-idx border-tester))))
+      (State. cells total-length row-length start-idx finish-idx edge-tester
+              good-edge-cells))))
 
 ;; Some tests on states
 (defn start-matches-finish?
@@ -64,17 +66,17 @@
   [{cells :cells}]
   (zero? cells))
 
-(defn make-border-tester
+(defn make-edge-tester
   "Returns ifn which for a valid offset returns whether that offset is on the
-   grid border."
+   grid edge."
   [row-length total-length]
   (let [col #(rem % row-length)
         top? #(< % row-length)
         bottom? #(> % (- total-length row-length))
         left? #(zero? (col %))
         right? #(= (dec row-length) (col %))
-        border? (some-fn top? bottom? left? right?)]
-    (mapv border? (range total-length))))
+        edge? (some-fn top? bottom? left? right?)]
+    (mapv edge? (range total-length))))
 
 ;; ### Outputting State
 (defn render-state

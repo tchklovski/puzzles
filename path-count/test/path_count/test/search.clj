@@ -23,7 +23,8 @@
   (neighbors 3 9 8) => [5 7])
 
 (facts "next-states"
-  (let [state (make-state [[2 1] [0 3]])]
+  (let [state (make-state [[2 1]
+                           [0 3]])]
     (next-states state)) => [(make-state [[1 1]
                                           [2 3]])])
 
