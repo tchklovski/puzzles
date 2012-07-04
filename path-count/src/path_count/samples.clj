@@ -52,7 +52,8 @@
   ;; (time (score large-test-state))
   "Elapsed time: 23073.343341 msecs"
   ;; boolean filter: "Elapsed time: 14189.361021 msecs"
-  ;; 606
+  ;; 606, 14082 calls
+  ;; older?:
   ;; with an extra row, "Elapsed time: 153472.73219 msecs"
   ;; 2471
   ;; 5032974 calls
@@ -66,6 +67,8 @@
     [3 0 0 1 1]]))
 
 (def huge-test-state
+  "7x7"
+  ;; 54 secs, 33380 layouts, 1107533 states examined
   (make-state
    [[2 0 0 0 0 0 0]
     [0 0 0 0 0 0 0]

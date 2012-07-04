@@ -9,7 +9,7 @@
 ;; summing number of layouts over more filled-in maps, with a
 ;; prunded depth first search. For example, we can move right from source,
 ;; or move down -- so the overall solution is the sum of two solutions.
-;; We treat cells which we already visited as 1 ("occupied").
+;; We treat cells which we already visited same as "occupied".
 ;; The start is initially occupied and finish unoccupied.
 
 ;; ### Optimizations
@@ -49,7 +49,7 @@
 (def neighbors (memoize neighbors*))
 
 (defn extend-to
-  "Mark current start-idx as taken-cell, and make offset new start-idx
+  "Mark offset as new start-idx, and mark it taken.
    Offset is assumed to be adjacent to current start (not checked)"
   [{:keys [cells start-idx] :as state} offset]
   (assoc state
@@ -65,7 +65,7 @@
        (filter #(cell-empty? cells %))))
 
 (defn taken-neighbors
-  "Returns a colleciton of offsets (cells) that correspond to empty
+  "Returns a colleciton of offsets (cells) that correspond to taken
    neighbor cells, given a state and an offset"
   [{:keys [cells row-length total-length]} offset]
   (->> offset
@@ -73,9 +73,9 @@
        (remove #(cell-empty? cells %))))
 
 (defn prune-next-offsets
-  "For non-finish next offsets, compute how many
-   neighbors each of them has. then prune non-viable cases"
-  ;; NB: could maybe do more about checking the finish cell as well
+  "For non-finish next offsets, compute how many empty neighbors each
+   of them has. Prune the non-viable cases"
+  ;; btw, score-leaf checks the finish cell
   [{:keys [finish-idx] :as state} next-offsets]
   (let [neighbor-counts (map #(and (not= finish-idx %)
                                     (count (empty-neighbors state %)))
@@ -86,8 +86,19 @@
           0 next-offsets
           1 [(nth next-offsets
                   (.indexOf (vec neighbor-counts) 1))]
+          ;; when more than 1 empty has just one empty neighbor,
+          ;; state is not viable
           nil)))))
-
+;; x
+;; xx
+;;   s
+;;   x
+;; x
+;; oo
+;;  s
+;;  x
+;; cells -- and edge testing -- should be on a boolean array, rather
+;; than on bit-packed?
 
 (defn edge-touch? [{:keys [edge-tester start-idx]}]
   (edge-tester start-idx))
@@ -132,12 +143,8 @@
       (do-update-edge-touch state))
     state))
 
-
-
-
 (defn next-states
-  "Return a collection of states. Prunes states that are not likely to be
-   viable"
+  "Return a collection of states. Prunes states that are not viable"
   [{:keys [start-idx] :as state}]
   (->> start-idx
        (empty-neighbors state)
@@ -158,6 +165,7 @@
   (or (score-leaf state)
       (when-let [nexts (seq (next-states state))]
         (sum (map count-layouts nexts)))
+      ;; if no next states, we ran into a dead end
       0))
 
 (def num-calls (atom 0))
@@ -174,16 +182,24 @@
 
 ;; ## Misc Notes
 
-;; TODO: Opt: after first touch of the border, we set up "allowed touch"
+;; discarding "hopeless" states sooner is key to cutting down avg base of
+;; exponent in this exponential search
+
+;; Opt: after first touch of the border, we set up "allowed touch"
 ;; at edges of stretch of ones along border contiguous to the first touch;
 ;; all other along the border are disallowed. At consequent touch of border,
 ;; we update the allowed spots.
 ;; upon allowed touch, the disallowed touch is updated
+;; note that touch can be of self, not just border!
 
-;; can have `check-board` fn which sanity checks upfront to see if solvable...
+;; for handling borders, it may be more elegant to surround board with filled
+;; cells, but we don't have enough bits for that :(
 
-;; opt: could try to discard "hopeless" states faster
-;; opt -- better search -- trigger possible discard when edges touched and
+;; need to have requested I/O behavior
+
+;; can have `possibly-solvable?` fn which sanity checks upfront and returns
+;; 0 for provably unsolvable...
+
 ;; isolated islands exist -- track total number of configs considered.
 
 ;; num empty neighbors datastructure -- for empty cells
@@ -193,14 +209,5 @@
 ;; have all the variants of n steps solved.
 ;; wonder how big the search space gets for the richest config
 
-
-;;(defn hash-key [{:keys cells start-idx}] [cells start-idx])
-
-;; can we leverage lazy seqs?
-;; is recurring somehow better?
-
 ;; note that we know if it's filled by how many steps we took -- but in current
 ;; approach the zero? test is cheap
-
-;; lazy fib for inspiration of how this search may be implemented
-;; (def fib (lazy-cat [0 1] (map + fib (rest fib))))
