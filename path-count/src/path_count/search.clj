@@ -24,6 +24,21 @@
 ;; may not be solvable in a reasonable amt of time.
 ;; NOTE -- would be nice to plot solution times vs. grid size
 
+;; so, we treat the edge as "occupied" -- by adding a row above, below, and
+;; "to the left". then we don't need edge checks, only neighbors.
+;; then, we play the following game --
+;; as soon as you get near (even diagonally) a foreign occupied, you mark the
+;; entire uncrossable component as "self". now, whenever you have a self-touch,
+;; of the surrounding 8, if you have any alternation of empty/full/empty/full,
+;; (or more) you won't be able to complete, b/c you've encircled one or the
+;; other. other than that, you gotta have at most one non-ending of degree 1,
+;; and you have to pick it as next if you do.
+;; "occupied" is a static map -- one for game.
+;; self can overlap with it. we and the self and occupied.
+
+;; we do need more than an int -- perhaps int-arrays with bit-setting
+;; neighbor checks can be bit-shifts and masks and "and"s
+
 (defn score-leaf
   "The contract is that it returns a score if it can figure it out, or
    nil if counting over next steps should be done"
@@ -57,7 +72,7 @@
     :cells (mark-cell-taken cells offset)))
 
 (defn empty-neighbors
-  "Returns a colleciton of offsets (cells) that correspond to empty
+  "Returns a collection of offsets (cells) that correspond to empty
    neighbor cells, given a state and an offset"
   [{:keys [cells row-length total-length]} offset]
   (->> offset
@@ -65,7 +80,7 @@
        (filter #(cell-empty? cells %))))
 
 (defn taken-neighbors
-  "Returns a colleciton of offsets (cells) that correspond to taken
+  "Returns a collection of offsets (cells) that correspond to taken
    neighbor cells, given a state and an offset"
   [{:keys [cells row-length total-length]} offset]
   (->> offset
@@ -100,6 +115,13 @@
 ;; cells -- and edge testing -- should be on a boolean array, rather
 ;; than on bit-packed?
 
+;; we do this neat -- but a bit complex in implementation thing:
+;; once we touch an edge, all subsequent touches of the edge must
+;; be adjacent to this stretch of edge touch (allowing for taken cells)
+;; ow we will have unreachable cells; still, the implementation is more
+;; complex than i wish it were
+;; we can simplify greatly by just discarding second touches which have two
+;; empty edge neighbors
 (defn edge-touch? [{:keys [edge-tester start-idx]}]
   (edge-tester start-idx))
 
@@ -107,7 +129,7 @@
   (filter edge-tester (taken-neighbors state offset)))
 
 (defn good-edge-touch? [{:keys [good-edge-cells start-idx] :as state}]
-  (or (not good-edge-cells)
+  (or (not good-edge-cells) ; the initial touch is "good"
       (some good-edge-cells (taken-edge-neighbors state start-idx))))
 
 (defn edge-filled-stretch
@@ -128,19 +150,17 @@
 (defn do-update-edge-touch [{:keys [good-edge-cells] :as state}]
   ;; NOTE: for speed, this can be a bitmap
   ;; has to start as nil though
-  (let [stretch (edge-filled-stretch state)
-        new-state (assoc state :good-edge-cells (into stretch good-edge-cells))]
+  (let [stretch (edge-filled-stretch state)]
     (when (or (and good-edge-cells (some good-edge-cells stretch))
               (not good-edge-cells))
-      new-state)))
+      (assoc state :good-edge-cells (into stretch good-edge-cells)))))
 
 (defn update-edge-touch
-  "Returns nil if this edge touch invalidated the state,
-   or updated state otherwise"
+  "Returns nil if this edge touch invalidated the state;
+   otherwise returns the updated state"
   [state]
    (if (edge-touch? state)
-    (when (good-edge-touch? state)
-      (do-update-edge-touch state))
+    (when (good-edge-touch? state) (do-update-edge-touch state))
     state))
 
 (defn next-states

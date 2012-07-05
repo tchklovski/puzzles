@@ -4,9 +4,12 @@
 
 ;; ### Test States
 (def test-state
-;; with neighbor-empty-count optimization: "Elapsed time: 540491.481086 msecs"
-;; 41942385 (42M) solutions
-;;  (time (score test-state))
+  ;; with neighbor-empty-count optimization: "Elapsed time: 540491.481086 msecs"
+  ;; 41942385 (42M) layouts tried
+  ;; with added edge-touch optimization: "Elapsed time: 275916.409914 msecs"
+  ;; 11539835 layouts tried
+  ;; 301716
+  ;;  (time (score test-state))
   (make-state
    [[2 0 0 0 0 0 0]
     [0 0 0 0 0 0 0]

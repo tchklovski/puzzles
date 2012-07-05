@@ -24,10 +24,11 @@
    grid that is fully filled is represented by 0."
   ;; seems bit setting is about 4x faster than vector "mutation"
   ;; (time (dotimes [_ 10e7] 3))
-  ;; (time (dotimes [_ 10e7] (bit-set 0 3)))
+  ;; (time (dotimes [_ 10e7] (bit-set 0 3))) ;; 1.7 secs
   ;; (time (dotimes [_ 10e7] (bit-set 0 3) (bit-set 2 3)))
   ;; (time (dotimes [_ 10e7] [0 0 0]))
   ;; (time (dotimes [_ 10e7] (assoc [0 0 0] 1 1)))
+  ;; (do (def foo (boolean-array (repeat 64 false))) (time (dotimes [_ 10e7] (aset (booleans (aclone (booleans foo))) 2 true)))) ;; 3.8 secs
   [cells-coll]
   (let [idx-if-empty (fn [idx cell] (when (= empty-cell cell) idx))
         cell-indices (keep-indexed idx-if-empty cells-coll)]
