@@ -1,5 +1,26 @@
 // shamelessly adapted from https://github.com/ankurdave/datacenter-cooling
-// with revised edge handling and different cutting technique by Tim Chklovski
+// with revised edge handling and a cutting tweak by Tim Chklovski
+
+/* on my laptop, this tweaked version is 20%+ faster
+
+MY TWEAK:
+
+time ./cooling < test
+301716
+
+real	0m18.882s
+user	0m18.733s
+sys	0m0.120s
+
+ORIGINAL:
+time ./datacenter-cooling < test
+301716
+
+real	0m23.874s
+user	0m23.713s
+sys	0m0.048s
+
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -112,9 +133,14 @@ uint min_degree_lt_2(uint curr) {
 }
 
 uint count_paths(uint curr, uint path_length) {
+  /*
+vertex-cut checs seem to cost 2.2 secs if not_ours is near current, chase it down with a dfs marking -- that you can roll back -- so also update a rollback;
+if rollback present, apply it before returning
+   */
+
     if (path_length == max_path_length && curr == end) {
         return 1;
-    } else if (is_vertex_cut() || min_degree_lt_2(curr)) {
+    } else if (min_degree_lt_2(curr) || is_vertex_cut()) {
         return 0;
     } else {
         int num_paths = 0;
